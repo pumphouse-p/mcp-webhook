@@ -2,24 +2,48 @@
 
 A Model Context Protocol (MCP) server that provides tools for calling external webhooks.
 
-[![Build and Publish Container](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/container.yml/badge.svg)](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/container.yml)
-[![Test](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/test.yml/badge.svg)](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/test.yml)
+[![Container Build](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/container.yml/badge.svg)](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/container.yml)
+[![Tests](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/test.yml/badge.svg)](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/test.yml)
+
+## Container Images
+
+Pre-built containers available on GitHub Container Registry:
+
+**stdio mode (MCP clients):**
+```bash
+podman pull ghcr.io/pumphouse-p/mcp-webhook:latest
+```
+
+**HTTP mode (web service):**
+```bash
+podman pull ghcr.io/pumphouse-p/mcp-webhook:latest-http
+```
 
 **Quick Links:**
 - [Quick Start Guide](QUICKSTART.md) - Get up and running in minutes
+- [Web Service Guide](WEB-SERVICE.md) - Complete HTTP/REST deployment guide  
+- [REST API Documentation](API.md) - HTTP/REST API reference
+- [Deployment Guide](DEPLOYMENT.md) - Production deployment instructions
 - [Container Documentation](CONTAINER.md) - Detailed container deployment guide
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
 
 ## Features
 
+### Webhook Tools
 - **webhook_post**: Send POST requests with JSON payloads
 - **webhook_get**: Send GET requests with query parameters
 - **webhook_put**: Send PUT requests with JSON payloads
 - **webhook_delete**: Send DELETE requests
 
-All tools support:
+### Deployment Modes
+- **stdio mode**: For MCP clients like Claude Desktop (default)
+- **HTTP mode**: Web service with REST API and MCP-over-HTTP (SSE)
+
+### Authentication
 - Custom headers
 - Webhook endpoint authentication (Basic Auth or API Key)
 - Optional MCP server authentication
+- HTTP Bearer token and Basic auth for REST API
 
 ## Authentication
 
@@ -287,10 +311,16 @@ podman build -f Containerfile -t localhost/mcp-webhook:latest .
 
 ### Running the Container
 
-Run the containerized server:
+> **Note:** This is a stdio-based MCP server. The container will exit immediately when run standalone because stdin closes. This is **expected behavior**. Use with Claude Desktop or pipe input for testing. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for details.
+
+Run the containerized server (for testing):
 
 ```bash
-./scripts/run.sh
+# Pipe input to keep stdin open
+echo '{}' | ./scripts/run.sh
+
+# Or use cat for interactive mode
+cat | ./scripts/run.sh
 ```
 
 With authentication enabled:
@@ -299,7 +329,13 @@ With authentication enabled:
 MCP_AUTH_ENABLED=true \
 MCP_AUTH_TYPE=api_key \
 MCP_API_KEYS=my-secret-key \
-./scripts/run.sh
+cat | ./scripts/run.sh
+```
+
+**Demo script:**
+```bash
+# See the container in action with examples
+./scripts/demo.sh
 ```
 
 ### Publishing the Container
@@ -340,6 +376,62 @@ The project includes GitHub Actions workflows for automated builds:
 To enable automatic publishing to GHCR, the workflows use `GITHUB_TOKEN` automatically.
 
 For detailed container documentation, see [CONTAINER.md](CONTAINER.md).
+
+## HTTP/Web Service Mode
+
+Deploy as a standalone web service with REST API:
+
+### Quick Start
+
+```bash
+# Build HTTP container
+./scripts/build-http.sh
+
+# Run HTTP server
+./scripts/run-http.sh
+
+# Or with Node.js
+npm run start:http
+```
+
+Access at: http://localhost:3000
+
+### REST API Endpoints
+
+- `POST /api/webhook/post` - Send POST request to webhook
+- `POST /api/webhook/get` - Send GET request to webhook
+- `POST /api/webhook/put` - Send PUT request to webhook
+- `POST /api/webhook/delete` - Send DELETE request to webhook
+- `GET /mcp/sse` - MCP-over-HTTP (Server-Sent Events)
+- `GET /health` - Health check endpoint
+
+### Example REST API Call
+
+```bash
+curl -X POST http://localhost:3000/api/webhook/post \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{
+    "url": "https://webhook.site/your-id",
+    "payload": {"message": "Hello from REST API"}
+  }'
+```
+
+### Production Deployment
+
+```bash
+# Kubernetes
+kubectl apply -f deploy/kubernetes/
+
+# Podman Compose
+podman-compose -f compose.http.yaml up -d
+
+# Systemd
+sudo cp deploy/systemd/mcp-webhook-container.service /etc/systemd/system/
+sudo systemctl enable --now mcp-webhook-container
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment instructions and [API.md](API.md) for full REST API documentation.
 
 ### Using Podman Compose
 

@@ -9,7 +9,8 @@ on:
       - main
 
 jobs:
-  test:
+  test-stdio:
+    name: Test stdio mode
     runs-on: ubuntu-latest
 
     steps:
@@ -25,12 +26,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Test server startup
+      - name: Test stdio server startup
         run: |
           timeout 2 npm start 2>&1 | tee output.log || true
           grep -q "MCP Webhook Server running on stdio" output.log
 
-      - name: Test with authentication enabled
+      - name: Test stdio with authentication enabled
         run: |
           MCP_AUTH_ENABLED=true \
           MCP_AUTH_TYPE=api_key \
@@ -38,17 +39,99 @@ jobs:
           timeout 2 npm start 2>&1 | tee auth_output.log || true
           grep -q "Server authentication: ENABLED" auth_output.log
 
-  container-build:
+  test-http:
+    name: Test HTTP mode
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build container
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start HTTP server
+        run: |
+          npm run start:http &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          sleep 3
+
+      - name: Test health endpoint
+        run: |
+          curl -f http://localhost:3000/health
+          curl -s http://localhost:3000/health | grep -q "healthy"
+
+      - name: Test info endpoint
+        run: |
+          curl -f http://localhost:3000/
+          curl -s http://localhost:3000/ | grep -q "MCP Webhook Server"
+
+      - name: Test POST webhook endpoint
+        run: |
+          curl -f -X POST http://localhost:3000/api/webhook/post \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/post","payload":{"test":true}}'
+
+      - name: Test GET webhook endpoint
+        run: |
+          curl -f -X POST http://localhost:3000/api/webhook/get \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/get"}'
+
+      - name: Stop server
+        if: always()
+        run: kill ${{ env.SERVER_PID }} || true
+
+  container-stdio:
+    name: Test stdio container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build stdio container
         run: docker build -f Containerfile -t mcp-webhook:test .
 
-      - name: Test container
+      - name: Test stdio container
         run: |
           timeout 3 docker run --rm -i mcp-webhook:test 2>&1 | tee container_output.log || true
           grep -q "MCP Webhook Server running on stdio" container_output.log
+
+  container-http:
+    name: Test HTTP container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build HTTP container
+        run: docker build -f Containerfile.http -t mcp-webhook:test-http .
+
+      - name: Start HTTP container
+        run: |
+          docker run --rm -d --name test-http -p 3000:3000 mcp-webhook:test-http
+          sleep 3
+
+      - name: Test HTTP container health
+        run: |
+          curl -f http://localhost:3000/health
+          curl -f http://localhost:3000/
+
+      - name: Test HTTP container webhook
+        run: |
+          curl -f -X POST http://localhost:3000/api/webhook/post \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/post","payload":{"ci":"test"}}'
+
+      - name: Stop HTTP container
+        if: always()
+        run: docker stop test-http || true

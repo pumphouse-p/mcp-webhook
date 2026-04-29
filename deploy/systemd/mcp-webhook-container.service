@@ -1,0 +1,34 @@
+[Unit]
+Description=MCP Webhook Server (Containerized HTTP Mode)
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/pumphouse-p/mcp-webhook
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/mcp-webhook/container.env
+ExecStartPre=-/usr/bin/podman pull localhost/mcp-webhook:http
+ExecStart=/usr/bin/podman run \
+  --rm \
+  --name mcp-webhook-http \
+  -p 3000:3000 \
+  -e PORT=3000 \
+  -e HOST=0.0.0.0 \
+  -e MCP_AUTH_ENABLED=${MCP_AUTH_ENABLED:-false} \
+  -e MCP_AUTH_TYPE=${MCP_AUTH_TYPE:-api_key} \
+  -e MCP_API_KEYS=${MCP_API_KEYS} \
+  -e MCP_USERNAME=${MCP_USERNAME} \
+  -e MCP_PASSWORD=${MCP_PASSWORD} \
+  --read-only \
+  --tmpfs /tmp \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL \
+  localhost/mcp-webhook:http
+
+ExecStop=/usr/bin/podman stop -t 10 mcp-webhook-http
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

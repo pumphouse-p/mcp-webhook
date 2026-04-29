@@ -1,0 +1,35 @@
+[Unit]
+Description=MCP Webhook Server (HTTP Mode)
+After=network.target
+Documentation=https://github.com/pumphouse-p/mcp-webhook
+
+[Service]
+Type=simple
+User=mcp
+Group=mcp
+WorkingDirectory=/opt/mcp-webhook
+
+Environment="PORT=3000"
+Environment="HOST=0.0.0.0"
+Environment="MCP_AUTH_ENABLED=true"
+Environment="MCP_AUTH_TYPE=api_key"
+EnvironmentFile=-/etc/mcp-webhook/config.env
+
+ExecStart=/usr/bin/node /opt/mcp-webhook/server.js
+
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcp-webhook
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target

@@ -45,10 +45,29 @@ podman build -f Containerfile -t localhost/mcp-webhook:latest .
 
 ## Running
 
+### Important: Understanding stdio-based Servers
+
+MCP servers communicate over stdio (standard input/output). The container will **exit immediately** if stdin closes. This is **expected behavior**.
+
+The container is designed to run as a child process managed by MCP clients (like Claude Desktop), which keep stdin open. For standalone testing, see the Troubleshooting section.
+
 ### Basic Usage
 
+**With Claude Desktop (Recommended):**
+Configure in Claude Desktop - it will manage the process lifecycle correctly.
+
+**For testing:**
 ```bash
-# Run without authentication
+# Pipe input to keep stdin open
+echo '{}' | podman run --rm -i localhost/mcp-webhook:latest
+
+# Or use cat for interactive testing
+cat | podman run --rm -i localhost/mcp-webhook:latest
+```
+
+**Without authentication:**
+```bash
+# Note: Container exits when stdin closes (this is correct!)
 podman run --rm -i localhost/mcp-webhook:latest
 
 # Run with API key authentication

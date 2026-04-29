@@ -21,6 +21,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        mode:
+          - name: stdio
+            dockerfile: Containerfile
+            suffix: ""
+          - name: http
+            dockerfile: Containerfile.http
+            suffix: -http
 
     steps:
       - name: Checkout repository
@@ -34,29 +43,39 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract metadata for ${{ matrix.mode.name }} mode
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch,suffix=${{ matrix.mode.suffix }}
+            type=ref,event=pr,suffix=${{ matrix.mode.suffix }}
+            type=semver,pattern={{version}},suffix=${{ matrix.mode.suffix }}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ matrix.mode.suffix }}
+            type=semver,pattern={{major}},suffix=${{ matrix.mode.suffix }}
+            type=sha,prefix={{branch}}-,suffix=${{ matrix.mode.suffix }}
+            type=raw,value=latest${{ matrix.mode.suffix }},enable={{is_default_branch}}
 
-      - name: Build and push container image
+      - name: Build and push ${{ matrix.mode.name }} container
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Containerfile
+          file: ./${{ matrix.mode.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Test container
+      - name: Test ${{ matrix.mode.name }} container
         run: |
-          timeout 3 docker run --rm -i ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
+          if [ "${{ matrix.mode.name }}" = "stdio" ]; then
+            # Test stdio mode
+            timeout 3 docker run --rm -i ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest || true
+          else
+            # Test HTTP mode
+            docker run --rm -d --name test-http -p 3000:3000 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-http
+            sleep 3
+            curl -f http://localhost:3000/health || exit 1
+            curl -f http://localhost:3000/ || exit 1
+            docker stop test-http
+          fi

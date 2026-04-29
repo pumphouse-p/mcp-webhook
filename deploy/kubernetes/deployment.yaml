@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-webhook
+  labels:
+    app: mcp-webhook
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mcp-webhook
+  template:
+    metadata:
+      labels:
+        app: mcp-webhook
+    spec:
+      containers:
+      - name: mcp-webhook
+        image: localhost/mcp-webhook:http
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "3000"
+        - name: HOST
+          value: "0.0.0.0"
+        - name: MCP_AUTH_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-webhook-config
+              key: auth-enabled
+        - name: MCP_AUTH_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-webhook-config
+              key: auth-type
+        - name: MCP_API_KEYS
+          valueFrom:
+            secretKeyRef:
+              name: mcp-webhook-secrets
+              key: api-keys
+              optional: true
+        - name: MCP_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mcp-webhook-secrets
+              key: username
+              optional: true
+        - name: MCP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mcp-webhook-secrets
+              key: password
+              optional: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-webhook
+  labels:
+    app: mcp-webhook
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: mcp-webhook
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-webhook-config
+data:
+  auth-enabled: "false"
+  auth-type: "api_key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-webhook-secrets
+type: Opaque
+stringData:
+  api-keys: "change-me-secret-key-1,change-me-secret-key-2"
+  username: "admin"
+  password: "change-me-password"
