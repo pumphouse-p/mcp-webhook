@@ -2,8 +2,8 @@
 
 A Model Context Protocol (MCP) server that provides tools for calling external webhooks.
 
-[![Build and Publish Container](https://github.com/username/mcp-webhook/actions/workflows/container.yml/badge.svg)](https://github.com/username/mcp-webhook/actions/workflows/container.yml)
-[![Test](https://github.com/username/mcp-webhook/actions/workflows/test.yml/badge.svg)](https://github.com/username/mcp-webhook/actions/workflows/test.yml)
+[![Build and Publish Container](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/container.yml/badge.svg)](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/container.yml)
+[![Test](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/test.yml/badge.svg)](https://github.com/pumphouse-p/mcp-webhook/actions/workflows/test.yml)
 
 **Quick Links:**
 - [Quick Start Guide](QUICKSTART.md) - Get up and running in minutes
