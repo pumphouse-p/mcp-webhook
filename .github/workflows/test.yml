@@ -1,0 +1,54 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test server startup
+        run: |
+          timeout 2 npm start 2>&1 | tee output.log || true
+          grep -q "MCP Webhook Server running on stdio" output.log
+
+      - name: Test with authentication enabled
+        run: |
+          MCP_AUTH_ENABLED=true \
+          MCP_AUTH_TYPE=api_key \
+          MCP_API_KEYS=test-key \
+          timeout 2 npm start 2>&1 | tee auth_output.log || true
+          grep -q "Server authentication: ENABLED" auth_output.log
+
+  container-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build container
+        run: docker build -f Containerfile -t mcp-webhook:test .
+
+      - name: Test container
+        run: |
+          timeout 3 docker run --rm -i mcp-webhook:test 2>&1 | tee container_output.log || true
+          grep -q "MCP Webhook Server running on stdio" container_output.log

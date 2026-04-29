@@ -1,0 +1,22 @@
+{
+  "name": "mcp-webhook",
+  "version": "1.0.0",
+  "description": "MCP server for calling external webhooks",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mcp-webhook": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [
+    "mcp",
+    "webhook",
+    "http"
+  ]
+}
