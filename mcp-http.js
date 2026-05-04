@@ -355,6 +355,10 @@ const createMcpServer = (logger) => {
 // Create Express app
 const app = express();
 
+// Trust proxy - REQUIRED when behind reverse proxy (Traefik, nginx, etc.)
+// This enables Express to read X-Forwarded-* headers correctly
+app.set("trust proxy", true);
+
 // Request ID middleware (first in chain)
 app.use((req, res, next) => {
   req.requestId = generateRequestId();
@@ -389,11 +393,15 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Enable CORS
-app.use(
-  cors({
-    origin: "*",
-  })
-);
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || "*",
+  credentials: true,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Request-ID"],
+  exposedHeaders: ["X-Request-ID"],
+};
+app.use(cors(corsOptions));
 
 // Authenticate request and extract API key
 const authenticateRequest = (req) => {
