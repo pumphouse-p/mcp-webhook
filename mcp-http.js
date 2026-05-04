@@ -537,6 +537,7 @@ async function main() {
     port: CONFIG.PORT,
     authentication: CONFIG.AUTH_ENABLED ? "enabled" : "disabled",
     apiKeys: CONFIG.AUTH_ENABLED ? CONFIG.API_KEYS.length : 0,
+    corsOrigin: process.env.CORS_ORIGIN || "*",
     logLevel: process.env.LOG_LEVEL || "INFO",
     requestLogging: process.env.LOG_REQUESTS !== "false",
     responseLogging: process.env.LOG_RESPONSES !== "false",
@@ -554,6 +555,7 @@ async function main() {
   if (CONFIG.AUTH_ENABLED) {
     console.log(`  Configured API keys: ${CONFIG.API_KEYS.length}`);
   }
+  console.log(`  CORS Origin: ${process.env.CORS_ORIGIN || "*"}`);
   console.log(`  Log Level: ${process.env.LOG_LEVEL || "INFO"}`);
   console.log(`  Request Logging: ${process.env.LOG_REQUESTS !== "false" ? "Enabled" : "Disabled"}`);
   console.log(`  Response Logging: ${process.env.LOG_RESPONSES !== "false" ? "Enabled" : "Disabled"}`);
