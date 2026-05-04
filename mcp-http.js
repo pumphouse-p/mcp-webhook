@@ -435,7 +435,7 @@ const mcpPostHandler = async (req, res) => {
     // Authenticate request
     const authResult = authenticateRequest(req);
 
-    logger.logAuthAttempt(authResult.ok, authResult.error, requestId);
+    logger.logAuthAttempt(authResult.ok, authResult.error, requestId, req.ip);
 
     if (!authResult.ok) {
       const errorResponse = {
