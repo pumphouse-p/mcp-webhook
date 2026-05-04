@@ -89,6 +89,72 @@ jobs:
         if: always()
         run: kill ${{ env.SERVER_PID }} || true
 
+  test-mcp-http:
+    name: Test MCP-over-HTTP mode
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start MCP-over-HTTP server
+        run: |
+          npm run start:mcp-http &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          sleep 3
+
+      - name: Test health endpoint
+        run: |
+          curl -f http://localhost:3000/health
+          curl -s http://localhost:3000/health | grep -q "healthy"
+
+      - name: Test info endpoint
+        run: |
+          curl -f http://localhost:3000/
+          curl -s http://localhost:3000/ | grep -q "MCP Webhook Server"
+
+      - name: Test MCP initialize
+        run: |
+          curl -f -X POST http://localhost:3000/mcp \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}},"id":1}' \
+            | grep -q "protocolVersion"
+
+      - name: Test MCP tools/list
+        run: |
+          curl -f -X POST http://localhost:3000/mcp \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"tools/list","id":2}' \
+            | grep -q "webhook_post"
+
+      - name: Test MCP webhook tool call
+        run: |
+          curl -f -X POST http://localhost:3000/mcp \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"webhook_get","arguments":{"url":"https://httpbin.org/get"}},"id":3}' \
+            | grep -q "200"
+
+      - name: Run test suite
+        run: |
+          API_KEY="" SERVER_URL=http://localhost:3000 node scripts/test-mcp-http.js
+
+      - name: Stop server
+        if: always()
+        run: kill ${{ env.SERVER_PID }} || true
+
   container-stdio:
     name: Test stdio container
     runs-on: ubuntu-latest
@@ -135,3 +201,44 @@ jobs:
       - name: Stop HTTP container
         if: always()
         run: docker stop test-http || true
+
+  container-mcp-http:
+    name: Test MCP-over-HTTP container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build MCP-over-HTTP container
+        run: docker build -f Containerfile.mcp-http -t mcp-webhook:test-mcp-http .
+
+      - name: Start MCP-over-HTTP container
+        run: |
+          docker run --rm -d --name test-mcp-http -p 3000:3000 mcp-webhook:test-mcp-http
+          sleep 3
+
+      - name: Test MCP-over-HTTP container health
+        run: |
+          curl -f http://localhost:3000/health
+          curl -f http://localhost:3000/
+
+      - name: Test MCP protocol via container
+        run: |
+          curl -f -X POST http://localhost:3000/mcp \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci-test","version":"1.0.0"}},"id":1}' \
+            | grep -q "protocolVersion"
+
+      - name: Test MCP tool call via container
+        run: |
+          curl -f -X POST http://localhost:3000/mcp \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"webhook_get","arguments":{"url":"https://httpbin.org/get"}},"id":2}' \
+            | grep -q "200"
+
+      - name: Stop MCP-over-HTTP container
+        if: always()
+        run: docker stop test-mcp-http || true

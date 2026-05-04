@@ -19,6 +19,11 @@ podman pull ghcr.io/pumphouse-p/mcp-webhook:latest
 podman pull ghcr.io/pumphouse-p/mcp-webhook:latest-http
 ```
 
+**MCP-over-HTTP mode (recommended for production):**
+```bash
+podman pull ghcr.io/pumphouse-p/mcp-webhook:latest-mcp-http
+```
+
 **Quick Links:**
 - [Quick Start Guide](QUICKSTART.md) - Get up and running in minutes
 - [Web Service Guide](WEB-SERVICE.md) - Complete HTTP/REST deployment guide  
@@ -37,7 +42,8 @@ podman pull ghcr.io/pumphouse-p/mcp-webhook:latest-http
 
 ### Deployment Modes
 - **stdio mode**: For MCP clients like Claude Desktop (default)
-- **HTTP mode**: Web service with REST API and MCP-over-HTTP (SSE)
+- **HTTP mode**: Simple REST API for basic webhook calls
+- **MCP-over-HTTP mode**: Full MCP protocol over HTTP with Bearer token auth (recommended for production)
 
 ### Authentication
 - Custom headers

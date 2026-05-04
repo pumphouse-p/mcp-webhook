@@ -1,4 +1,4 @@
-.PHONY: build build-http publish run run-http clean test test-http help demo
+.PHONY: build build-http build-mcp-http publish run run-http run-mcp-http clean test test-http test-mcp-http help demo
 
 IMAGE_NAME ?= mcp-webhook
 IMAGE_TAG ?= latest
@@ -16,10 +16,15 @@ help:
 	@echo "  test        - Test stdio container"
 	@echo "  demo        - Demo stdio container behavior"
 	@echo ""
-	@echo "HTTP mode (web service):"
-	@echo "  build-http  - Build the HTTP container image"
-	@echo "  run-http    - Run HTTP server container"
-	@echo "  test-http   - Test HTTP endpoints"
+	@echo "HTTP mode (plain REST API):"
+	@echo "  build-http     - Build the HTTP container image"
+	@echo "  run-http       - Run HTTP server container"
+	@echo "  test-http      - Test HTTP endpoints"
+	@echo ""
+	@echo "MCP-over-HTTP mode (recommended):"
+	@echo "  build-mcp-http - Build the MCP-over-HTTP container"
+	@echo "  run-mcp-http   - Run MCP-over-HTTP server container"
+	@echo "  test-mcp-http  - Test MCP-over-HTTP functionality"
 	@echo ""
 	@echo "General:"
 	@echo "  publish     - Push container to registry"
@@ -27,15 +32,18 @@ help:
 	@echo "  help        - Show this help"
 	@echo ""
 	@echo "Environment variables:"
-	@echo "  IMAGE_NAME - Container image name (default: mcp-webhook)"
-	@echo "  IMAGE_TAG  - Container image tag (default: latest)"
-	@echo "  REGISTRY   - Container registry (default: localhost)"
-	@echo "  PORT       - HTTP server port (default: 3000)"
+	@echo "  IMAGE_NAME     - Container image name (default: mcp-webhook)"
+	@echo "  IMAGE_TAG      - Container image tag (default: latest)"
+	@echo "  REGISTRY       - Container registry (default: localhost)"
+	@echo "  PORT           - HTTP server port (default: 3000)"
+	@echo "  MCP_AUTH_ENABLED - Enable authentication (default: false)"
+	@echo "  MCP_API_KEYS   - Comma-separated API keys"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build"
-	@echo "  make build-http"
-	@echo "  make run-http PORT=8080"
+	@echo "  make build-mcp-http"
+	@echo "  make run-mcp-http MCP_AUTH_ENABLED=true MCP_API_KEYS=my-key"
+	@echo "  make test-mcp-http SERVER_URL=http://localhost:3000 API_KEY=my-key"
 	@echo "  make publish REGISTRY=quay.io/myuser"
 
 build:
@@ -50,6 +58,13 @@ build-http:
 	podman build \
 		--file Containerfile.http \
 		--tag $(REGISTRY)/$(IMAGE_NAME):http \
+		.
+
+build-mcp-http:
+	@echo "Building MCP-over-HTTP container image..."
+	podman build \
+		--file Containerfile.mcp-http \
+		--tag $(REGISTRY)/$(IMAGE_NAME):mcp-http \
 		.
 
 publish: build
@@ -82,10 +97,21 @@ run-http:
 		-e MCP_PASSWORD=$(MCP_PASSWORD) \
 		$(REGISTRY)/$(IMAGE_NAME):http
 
+run-mcp-http:
+	@echo "Starting MCP-over-HTTP server on port $(PORT)..."
+	@echo "Access at: http://localhost:$(PORT)/mcp"
+	@podman run --rm \
+		-p $(PORT):3000 \
+		--name mcp-webhook-mcp-http \
+		-e MCP_AUTH_ENABLED=$(MCP_AUTH_ENABLED) \
+		-e MCP_API_KEYS=$(MCP_API_KEYS) \
+		$(REGISTRY)/$(IMAGE_NAME):mcp-http
+
 clean:
 	@echo "Removing container images..."
 	podman rmi $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG) || true
 	podman rmi $(REGISTRY)/$(IMAGE_NAME):http || true
+	podman rmi $(REGISTRY)/$(IMAGE_NAME):mcp-http || true
 	podman image prune -f
 
 test: build
@@ -94,6 +120,10 @@ test: build
 test-http: build-http
 	@echo "Testing HTTP server..."
 	@./scripts/test-http.sh
+
+test-mcp-http:
+	@echo "Testing MCP-over-HTTP..."
+	@SERVER_URL=$(SERVER_URL) API_KEY=$(API_KEY) node scripts/test-mcp-http.js
 
 demo: build
 	@./scripts/demo.sh

@@ -9,11 +9,14 @@
   },
   "scripts": {
     "start": "node index.js",
-    "start:http": "node server.js"
+    "start:http": "node server.js",
+    "start:mcp-http": "node mcp-http.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "dotenv": "^16.4.5"
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
   },
   "keywords": [
     "mcp",
