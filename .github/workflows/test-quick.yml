@@ -1,0 +1,50 @@
+name: Quick Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-node:
+    name: Test with Node.js
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test MCP-over-HTTP server startup
+        run: |
+          timeout 3 npm run start:mcp-http 2>&1 | tee output.log || true
+          grep -q "Server listening" output.log
+
+      - name: Test MCP-over-HTTP with requests
+        run: |
+          npm run start:mcp-http &
+          SERVER_PID=$!
+          sleep 3
+          
+          # Test health
+          curl -f http://localhost:3000/health
+          
+          # Test MCP endpoint
+          curl -f -X POST http://localhost:3000/mcp \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}},"id":1}' \
+            | grep -q "protocolVersion"
+          
+          kill $SERVER_PID || true

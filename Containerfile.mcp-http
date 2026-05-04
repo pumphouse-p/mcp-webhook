@@ -2,14 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files and install as root
+# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Copy application files
 COPY mcp-http.js ./
+COPY lib ./lib
 
-# Create user and set ownership
+# Create non-root user
 RUN addgroup -g 1001 -S mcp && \
     adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G mcp -g mcp mcp
 

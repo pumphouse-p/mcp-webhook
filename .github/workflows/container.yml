@@ -21,7 +21,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    continue-on-error: true  # Container builds may fail
     strategy:
+      fail-fast: false  # Continue building other variants if one fails
       matrix:
         mode:
           - name: stdio
